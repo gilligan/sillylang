@@ -1,0 +1,8 @@
+cradle:
+  cabal:
+    - path: "./app"
+      component: "exe:sillylang"
+    - path: "./test"
+      component: "test:tests"
+    - path: "./src/"
+      component: "lib:sillylang"
