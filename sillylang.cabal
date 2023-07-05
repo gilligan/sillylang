@@ -18,6 +18,7 @@ maintainer:         tobias.pflug@gmail.com
 -- category:
 build-type:         Simple
 extra-source-files: CHANGELOG.md
+tested-with:        GHC ==9.2.7
 
 common common-options
   default-language:   GHC2021
