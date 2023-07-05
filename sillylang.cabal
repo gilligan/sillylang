@@ -56,14 +56,15 @@ executable sillylang
   hs-source-dirs: app
 
 test-suite tests
-  import:         common-options
-  type:           exitcode-stdio-1.0
-  hs-source-dirs: tests
-  main-is:        Spec.hs
+  import:             common-options
+  type:               exitcode-stdio-1.0
+  hs-source-dirs:     tests
+  main-is:            Spec.hs
   other-modules:
     Silly.EvalSpec
     Silly.SillySpec
 
+  build-tool-depends: hspec-discover:hspec-discover
   build-depends:
     , base       >=4.16
     , hspec
