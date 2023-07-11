@@ -4,64 +4,81 @@ import Silly.Eval
 import Silly.Expr
 import Test.Hspec
 
+infix 1 `shouldEvalTo`
+
+shouldEvalTo :: SillyExpr -> Either SillyException SillyVal -> Expectation
+shouldEvalTo expression expected = do
+  x <- runEvalExpr expression
+  x `shouldBe` expected
 
 spec :: Spec
 spec = do
   describe "Eval" $ do
-    describe "evalExpr" $ do
-      it "evaluates an Integer" $ 
-        evalExpr (LitInt 1) `shouldBe` IntValue 1
-      it "evaluates a String" $ 
-        evalExpr (LitString "text") `shouldBe` StrValue "text"
+    describe "evalExpr'" $ do
+      it "evaluates an Integer" $ do
+        LitInt 1 `shouldEvalTo` Right (IntValue 1)
+      it "evaluates a String" $
+        LitString "text" `shouldEvalTo` Right (StrValue "text")
       it "evaluates a Bool" $ do
-        evalExpr (LitBool True) `shouldBe` BoolValue True
-        evalExpr (LitBool False) `shouldBe` BoolValue False
+        LitBool True `shouldEvalTo` Right (BoolValue True)
+        LitBool False `shouldEvalTo` Right (BoolValue False)
       it "evaluates a BinOp" $ do
-        evalExpr (BinaryOp  PlusOp (LitInt 1) (LitInt 2)) `shouldBe` IntValue 3
-        evalExpr (BinaryOp  MinusOp (LitInt 2) (LitInt 1)) `shouldBe` IntValue 1
-        evalExpr (BinaryOp  MinusOp (LitInt 2) (LitInt 1)) `shouldBe` IntValue 1
+        BinaryOp PlusOp (LitInt 1) (LitInt 2) `shouldEvalTo` Right (IntValue 3)
+        BinaryOp MinusOp (LitInt 2) (LitInt 1) `shouldEvalTo` Right (IntValue 1)
+        BinaryOp MinusOp (LitInt 2) (LitInt 1) `shouldEvalTo` Right (IntValue 1)
     describe "evalBinOp" $ do
-      it "evaluates 'PlusOp'" $
-        evalBinOp  PlusOp (LitInt 1) (LitInt 2) `shouldBe` IntValue 3
-      it "evaluates 'MinusOp'" $
-        evalBinOp  MinusOp (LitInt 2) (LitInt 1) `shouldBe` IntValue 1
+      it "successfully evaluates 'PlusOp' on integers" $
+        BinaryOp PlusOp (LitInt 1) (LitInt 2) `shouldEvalTo` Right (IntValue 3)
+      it "fails to evaluate invalid 'PlusOp' on non-integer arguments" $ do
+        BinaryOp PlusOp (LitInt 1) (LitBool True) `shouldEvalTo` Left (Exception "evaluation error: Addition on non-integer arguments")
+        BinaryOp PlusOp (LitInt 1) (LitString "1") `shouldEvalTo` Left (Exception "evaluation error: Addition on non-integer arguments")
+      it "successfully evaluates 'MinusOp' on integers" $
+        BinaryOp MinusOp (LitInt 2) (LitInt 1) `shouldEvalTo` Right (IntValue 1)
+      it "fails to evaluate invalid 'MinusOp' on non-integer arguments" $ do
+        BinaryOp MinusOp (LitInt 2) (LitBool True) `shouldEvalTo` Left (Exception "evaluation error: Subtraction on non-integer arguments")
+        BinaryOp MinusOp (LitInt 2) (LitString "1") `shouldEvalTo` Left (Exception "evaluation error: Subtraction on non-integer arguments")
+      it "successfully evaluates 'MultiplyOp' on integers" $ do
+        BinaryOp  MultiplyOp (LitInt 2) (LitInt 2) `shouldEvalTo` Right (IntValue 4)
+      it "fails to evaluate invalid 'MultiplyOp' on non-integer arguments" $ do
+        BinaryOp MultiplyOp (LitInt 2) (LitBool True) `shouldEvalTo` Left (Exception "evaluation error: Multiplication on non-integer arguments")
+        BinaryOp MultiplyOp (LitInt 2) (LitString "1") `shouldEvalTo` Left (Exception "evaluation error: Multiplication on non-integer arguments")
       it "evaluates 'EqualsOp'" $ do
-        evalBinOp  EqualsOp (LitInt 1) (LitInt 1) `shouldBe` BoolValue True 
-        evalBinOp  EqualsOp (LitInt 1) (LitInt 2) `shouldBe` BoolValue False 
-        evalBinOp  EqualsOp (LitInt 1) (LitString "1") `shouldBe` BoolValue False 
-        evalBinOp  EqualsOp (LitInt 1) (LitBool True) `shouldBe` BoolValue False 
-        evalBinOp  EqualsOp (LitInt 1) (LitBool False) `shouldBe` BoolValue False 
+        BinaryOp EqualsOp (LitInt 1) (LitInt 1) `shouldEvalTo` Right (BoolValue True)
+        BinaryOp EqualsOp (LitInt 1) (LitInt 2) `shouldEvalTo` Right (BoolValue False)
+        BinaryOp EqualsOp (LitInt 1) (LitString "1") `shouldEvalTo` Right (BoolValue False)
+        BinaryOp EqualsOp (LitInt 1) (LitBool True) `shouldEvalTo` Right (BoolValue False)
+        BinaryOp EqualsOp (LitInt 1) (LitBool False) `shouldEvalTo` Right (BoolValue False)
 
-        evalBinOp  EqualsOp (LitString "text") (LitString "text") `shouldBe` BoolValue True 
-        evalBinOp  EqualsOp (LitString "text") (LitString "") `shouldBe` BoolValue False 
-        evalBinOp  EqualsOp (LitString "text") (LitInt 1) `shouldBe` BoolValue False 
-        evalBinOp  EqualsOp (LitString "text") (LitBool True) `shouldBe` BoolValue False 
-        evalBinOp  EqualsOp (LitString "text") (LitBool False) `shouldBe` BoolValue False 
+        BinaryOp EqualsOp (LitString "text") (LitString "text") `shouldEvalTo` Right (BoolValue True)
+        BinaryOp EqualsOp (LitString "text") (LitString "") `shouldEvalTo` Right (BoolValue False)
+        BinaryOp EqualsOp (LitString "text") (LitInt 1) `shouldEvalTo` Right (BoolValue False)
+        BinaryOp EqualsOp (LitString "text") (LitBool True) `shouldEvalTo` Right (BoolValue False)
+        BinaryOp EqualsOp (LitString "text") (LitBool False) `shouldEvalTo` Right (BoolValue False)
 
-        evalBinOp  EqualsOp (LitBool True) (LitBool True) `shouldBe` BoolValue True 
-        evalBinOp  EqualsOp (LitBool False) (LitBool False) `shouldBe` BoolValue True 
-        evalBinOp  EqualsOp (LitBool True) (LitBool False) `shouldBe` BoolValue False 
-        evalBinOp  EqualsOp (LitBool True) (LitInt 1) `shouldBe` BoolValue False 
-        evalBinOp  EqualsOp (LitBool True) (LitString "text") `shouldBe` BoolValue False 
-        evalBinOp  EqualsOp (LitBool False) (LitInt 1) `shouldBe` BoolValue False 
-        evalBinOp  EqualsOp (LitBool False) (LitString "text") `shouldBe` BoolValue False 
+        BinaryOp EqualsOp (LitBool True) (LitBool True) `shouldEvalTo` Right (BoolValue True)
+        BinaryOp EqualsOp (LitBool False) (LitBool False) `shouldEvalTo` Right (BoolValue True)
+        BinaryOp EqualsOp (LitBool True) (LitBool False) `shouldEvalTo` Right (BoolValue False)
+        BinaryOp EqualsOp (LitBool True) (LitInt 1) `shouldEvalTo` Right (BoolValue False)
+        BinaryOp EqualsOp (LitBool True) (LitString "text") `shouldEvalTo` Right (BoolValue False)
+        BinaryOp EqualsOp (LitBool False) (LitInt 1) `shouldEvalTo` Right (BoolValue False)
+        BinaryOp EqualsOp (LitBool False) (LitString "text") `shouldEvalTo` Right (BoolValue False)
       it "evaluates 'NotEqualsOp'" $ do
-        evalBinOp  NotEqualsOp (LitInt 1) (LitInt 1) `shouldBe` BoolValue False 
-        evalBinOp  NotEqualsOp (LitInt 1) (LitInt 2) `shouldBe` BoolValue True 
-        evalBinOp  NotEqualsOp (LitInt 1) (LitString "1") `shouldBe` BoolValue True 
-        evalBinOp  NotEqualsOp (LitInt 1) (LitBool True) `shouldBe` BoolValue True 
-        evalBinOp  NotEqualsOp (LitInt 1) (LitBool False) `shouldBe` BoolValue True 
+        BinaryOp NotEqualsOp (LitInt 1) (LitInt 1) `shouldEvalTo` Right (BoolValue False)
+        BinaryOp NotEqualsOp (LitInt 1) (LitInt 2) `shouldEvalTo` Right (BoolValue True)
+        BinaryOp NotEqualsOp (LitInt 1) (LitString "1") `shouldEvalTo` Right (BoolValue True)
+        BinaryOp NotEqualsOp (LitInt 1) (LitBool True) `shouldEvalTo` Right (BoolValue True)
+        BinaryOp NotEqualsOp (LitInt 1) (LitBool False) `shouldEvalTo` Right (BoolValue True)
 
-        evalBinOp  NotEqualsOp (LitString "text") (LitString "text") `shouldBe` BoolValue False 
-        evalBinOp  NotEqualsOp (LitString "text") (LitString "") `shouldBe` BoolValue True 
-        evalBinOp  NotEqualsOp (LitString "text") (LitInt 1) `shouldBe` BoolValue True 
-        evalBinOp  NotEqualsOp (LitString "text") (LitBool True) `shouldBe` BoolValue True 
-        evalBinOp  NotEqualsOp (LitString "text") (LitBool True) `shouldBe` BoolValue True 
+        BinaryOp NotEqualsOp (LitString "text") (LitString "text") `shouldEvalTo` Right (BoolValue False)
+        BinaryOp NotEqualsOp (LitString "text") (LitString "") `shouldEvalTo` Right (BoolValue True)
+        BinaryOp NotEqualsOp (LitString "text") (LitInt 1) `shouldEvalTo` Right (BoolValue True)
+        BinaryOp NotEqualsOp (LitString "text") (LitBool True) `shouldEvalTo` Right (BoolValue True)
+        BinaryOp NotEqualsOp (LitString "text") (LitBool True) `shouldEvalTo` Right (BoolValue True)
 
-        evalBinOp  NotEqualsOp (LitBool True) (LitBool True) `shouldBe` BoolValue False 
-        evalBinOp  NotEqualsOp (LitBool False) (LitBool False) `shouldBe` BoolValue False 
-        evalBinOp  NotEqualsOp (LitBool True) (LitBool True) `shouldBe` BoolValue False 
-        evalBinOp  NotEqualsOp (LitBool True) (LitInt 1) `shouldBe` BoolValue True 
-        evalBinOp  NotEqualsOp (LitBool True) (LitString "text") `shouldBe` BoolValue True 
-        evalBinOp  NotEqualsOp (LitBool True) (LitInt 1) `shouldBe` BoolValue True 
-        evalBinOp  NotEqualsOp (LitBool True) (LitString "text") `shouldBe` BoolValue True 
+        BinaryOp NotEqualsOp (LitBool True) (LitBool True) `shouldEvalTo` Right (BoolValue False)
+        BinaryOp NotEqualsOp (LitBool False) (LitBool False) `shouldEvalTo` Right (BoolValue False)
+        BinaryOp NotEqualsOp (LitBool True) (LitBool True) `shouldEvalTo` Right (BoolValue False)
+        BinaryOp NotEqualsOp (LitBool True) (LitInt 1) `shouldEvalTo` Right (BoolValue True)
+        BinaryOp NotEqualsOp (LitBool True) (LitString "text") `shouldEvalTo` Right (BoolValue True)
+        BinaryOp NotEqualsOp (LitBool True) (LitInt 1) `shouldEvalTo` Right (BoolValue True)
+        BinaryOp NotEqualsOp (LitBool True) (LitString "text") `shouldEvalTo` Right (BoolValue True)
