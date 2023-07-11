@@ -26,6 +26,8 @@ spec = do
         BinaryOp PlusOp (LitInt 1) (LitInt 2) `shouldEvalTo` Right (IntValue 3)
         BinaryOp MinusOp (LitInt 2) (LitInt 1) `shouldEvalTo` Right (IntValue 1)
         BinaryOp MinusOp (LitInt 2) (LitInt 1) `shouldEvalTo` Right (IntValue 1)
+      it "evaluates a variable reference" $ do
+        Variable "meaning" `shouldEvalTo` Right (IntValue 42)
     describe "evalBinOp" $ do
       it "successfully evaluates 'PlusOp' on integers" $
         BinaryOp PlusOp (LitInt 1) (LitInt 2) `shouldEvalTo` Right (IntValue 3)

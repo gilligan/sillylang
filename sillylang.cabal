@@ -38,11 +38,12 @@ library
   -- other-modules:
   -- other-extensions:
   build-depends:
-    , base         >=4.16
+    , base               >=4.16
     , containers
     , lifted-base
     , mtl
     , text
+    , transformers-base
 
   hs-source-dirs:  src
 

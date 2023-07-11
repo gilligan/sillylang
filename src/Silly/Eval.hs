@@ -1,11 +1,12 @@
 {-# LANGUAGE LambdaCase #-}
-{-# OPTIONS_GHC -Wno-deferred-out-of-scope-variables #-}
 
 module Silly.Eval where
 
 import Control.Monad.Except (ExceptT, MonadError (..),runExceptT)
 import Control.Monad.IO.Class (MonadIO)
 import Control.Monad.State.Strict (MonadState, StateT, evalStateT)
+import Control.Monad.Base (MonadBase)
+import qualified Control.Monad.State.Strict as State
 import Data.IORef.Lifted
 import Data.Map.Strict qualified as Map
 import Data.Text qualified as T
@@ -26,15 +27,15 @@ type EvalResult = Either T.Text SillyVal
 
 type Env = Map.Map Identifier (IORef SillyVal)
 
-initialEnv' :: IO Env
-initialEnv' = do
+initialState :: IO InterpreterState
+initialState = do
   meaning <- newIORef (IntValue 42)
-  return $
+  return $ InterpreterState $
     Map.fromList
       [ ("meaning", meaning)
       ]
 
-newtype InterpreterState = InterpreterState {interpEnv :: Env}
+newtype InterpreterState = InterpreterState {sillyEnv :: Env}
 
 newtype Interpreter a = Interpreter
   { runInterpreter :: ExceptT SillyException (StateT InterpreterState IO) a
@@ -44,15 +45,16 @@ newtype Interpreter a = Interpreter
       Applicative,
       Monad,
       MonadIO,
+      MonadBase IO,
       MonadState InterpreterState,
       MonadError SillyException
     )
 
 runEvalExpr :: SillyExpr -> IO (Either SillyException SillyVal)
-runEvalExpr exp = flip evalStateT s . runExceptT . runInterpreter $ evalExpr exp
-  where
-    s = InterpreterState  Map.empty
-    
+runEvalExpr exp = do
+  s <- initialState
+  flip evalStateT s . runExceptT . runInterpreter $ evalExpr exp
+
 runtimeError :: T.Text -> Interpreter a
 runtimeError = throwError . Exception
 
@@ -62,7 +64,16 @@ evalExpr = \case
   LitString str -> return $ StrValue str
   LitBool x -> return $ BoolValue x
   BinaryOp op l r -> evalBinOp op l r
-  Variable _ -> undefined
+  Variable varId -> lookupVar varId
+
+lookupVar :: Identifier -> Interpreter SillyVal
+lookupVar varId = State.gets sillyEnv >>= getRef varId >>= readIORef
+
+getRef :: Identifier -> Env -> Interpreter (IORef SillyVal)
+getRef idVar env =
+  case Map.lookup idVar env of
+       Just ref -> return ref
+       Nothing -> runtimeError "undefined variable"
 
 evalBinOp :: BinOp -> SillyExpr -> SillyExpr -> Interpreter SillyVal
 evalBinOp op l r = do
