@@ -11,6 +11,7 @@ shouldEvalTo expression expected = do
   x <- runEvalExpr expression
   x `shouldBe` expected
 
+
 spec :: Spec
 spec = do
   describe "Eval" $ do
@@ -84,3 +85,13 @@ spec = do
         BinaryOp NotEqualsOp (LitBool True) (LitString "text") `shouldEvalTo` Right (BoolValue True)
         BinaryOp NotEqualsOp (LitBool True) (LitInt 1) `shouldEvalTo` Right (BoolValue True)
         BinaryOp NotEqualsOp (LitBool True) (LitString "text") `shouldEvalTo` Right (BoolValue True)
+    describe "SillyInterpreter" $ do
+      it "can lookup pre-defined variables" $ do
+        res <- runWithInitialState $
+          lookupVar "meaning"
+        res `shouldBe` Right (IntValue 42)
+      it "can lookup defined variables" $ do
+        res <- runWithInitialState $ do
+         runStmt $ VarStmt "foobar" (LitInt 1337) 
+         lookupRef "foobar"
+        res `shouldBe` Right (Just $ IntValue 1337)

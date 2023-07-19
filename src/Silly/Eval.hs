@@ -56,6 +56,25 @@ newtype Interpreter a = Interpreter
       MonadError SillyException
     )
 
+class (Functor m, Applicative m, Monad m, MonadIO m, MonadBase IO m, MonadState InterpreterState m, MonadError SillyException m) => SillyInterpreter m where
+  lookupRef :: Identifier -> m (Maybe SillyVal)
+  runStmt :: Stmt -> m ()
+
+instance SillyInterpreter Interpreter where
+  lookupRef r = do
+    env <- State.gets sillyEnv
+    case Map.lookup r env of
+      Just ref -> do
+        val <- readIORef ref
+        return $ Just val
+      Nothing -> return Nothing
+  runStmt = runStatement
+
+runWithInitialState :: Interpreter a -> IO (Either SillyException a)
+runWithInitialState a = do 
+  s <- initialState
+  flip evalStateT s . runExceptT . runInterpreter $ a
+
 -- | Runs an expression evaluation through the Interpreter monad stack
 runEvalExpr :: SillyExpr -> IO (Either SillyException SillyVal)
 runEvalExpr exp = do
@@ -63,11 +82,11 @@ runEvalExpr exp = do
   flip evalStateT s . runExceptT . runInterpreter $ evalExpr exp
 
 -- | Throws an Exception in the Interpreter monad stack with the given description
-runtimeError :: T.Text -> Interpreter a
+runtimeError :: SillyInterpreter m => T.Text -> m a
 runtimeError = throwError . Exception
 
 -- | Evaluates an expression
-evalExpr :: SillyExpr -> Interpreter SillyVal
+evalExpr :: SillyInterpreter m => SillyExpr -> m SillyVal
 evalExpr = \case
   LitInt x -> return $ IntValue x
   LitString str -> return $ StrValue str
@@ -77,28 +96,28 @@ evalExpr = \case
 
 -- | Retrieves a variable specified by identifier.
 -- An runtime exception will be thrown if the identifier is not present in the runtime environment
-lookupVar :: Identifier -> Interpreter SillyVal
+lookupVar :: SillyInterpreter m => Identifier -> m SillyVal
 lookupVar varId = State.gets sillyEnv >>= getRef varId >>= readIORef
 
 -- | Obtain a reference from the environment
-getRef :: Identifier -> Env -> Interpreter (IORef SillyVal)
+getRef :: SillyInterpreter m => Identifier -> Env -> m (IORef SillyVal)
 getRef idVar env =
   case Map.lookup idVar env of
     Just ref -> return ref
     Nothing -> runtimeError "undefined variable"
 
 -- | Execute a statement in the interpreter
-runStatement :: Stmt -> Interpreter ()
+runStatement :: SillyInterpreter m => Stmt -> m ()
 runStatement = \case
   ExprStmt expr -> State.void $ evalExpr expr
   VarStmt varId expr -> evalExpr expr >>= defineVar varId
 
 -- | Update the Interpreter State environment
-updateEnv :: Env -> Interpreter ()
+updateEnv :: SillyInterpreter m => Env -> m ()
 updateEnv env = State.modify' $ \s -> s {sillyEnv = env}
 
 -- | Execute a variable declaration by name and value
-defineVar :: Identifier -> SillyVal -> Interpreter ()
+defineVar :: SillyInterpreter m => Identifier -> SillyVal -> m ()
 defineVar varId val = do
   env <- State.gets sillyEnv
   if Map.member varId env
@@ -106,7 +125,7 @@ defineVar varId val = do
     else newIORef val >>= \ref -> updateEnv $ Map.insert varId ref env
 
 -- | Evaluate a binary operation expression
-evalBinOp :: BinOp -> SillyExpr -> SillyExpr -> Interpreter SillyVal
+evalBinOp :: SillyInterpreter m => BinOp -> SillyExpr -> SillyExpr -> m SillyVal
 evalBinOp op l r = do
   leftVal <- evalExpr l
   rightVal <- evalExpr r
