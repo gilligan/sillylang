@@ -2,11 +2,13 @@
 
 module Silly.Eval where
 
+import Control.Monad (when)
 import Control.Monad.Base (MonadBase)
 import Control.Monad.Except (ExceptT, MonadError (..), runExceptT)
 import Control.Monad.IO.Class (MonadIO)
 import Control.Monad.State.Strict (MonadState, StateT, evalStateT)
 import Control.Monad.State.Strict qualified as State
+import Data.Foldable (traverse_)
 import Data.IORef.Lifted
 import Data.Map.Strict qualified as Map
 import Data.Text qualified as T
@@ -71,7 +73,7 @@ instance SillyInterpreter Interpreter where
   runStmt = runStatement
 
 runWithInitialState :: Interpreter a -> IO (Either SillyException a)
-runWithInitialState a = do 
+runWithInitialState a = do
   s <- initialState
   flip evalStateT s . runExceptT . runInterpreter $ a
 
@@ -106,11 +108,20 @@ getRef idVar env =
     Just ref -> return ref
     Nothing -> runtimeError "undefined variable"
 
+isTruthy :: SillyVal -> Bool
+isTruthy = \case
+  IntValue num -> (num /= 0)
+  StrValue str -> (str /= "")
+  BoolValue bool -> bool
+
 -- | Execute a statement in the interpreter
 runStatement :: SillyInterpreter m => Stmt -> m ()
 runStatement = \case
   ExprStmt expr -> State.void $ evalExpr expr
   VarStmt varId expr -> evalExpr expr >>= defineVar varId
+  IfCond cond stmt -> do
+    c <- evalExpr cond
+    when (isTruthy c) $ traverse_ runStatement stmt
 
 -- | Update the Interpreter State environment
 updateEnv :: SillyInterpreter m => Env -> m ()

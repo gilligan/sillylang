@@ -42,5 +42,7 @@ data Stmt
     ExprStmt SillyExpr
   | -- | Variable declaration
     VarStmt Identifier SillyExpr
+  | -- | If Clause
+    IfCond SillyExpr [Stmt]
 
 type Program = [Stmt]
